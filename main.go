@@ -9,54 +9,61 @@ import (
 
 var viewNames = []string{"project", "databases", "queries", "queryWindow"}
 var currentView = 0
+var didInitFocus = false
 
 func layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
 
-	// Project view
-	if v, err := g.SetView("project", 0, 0, maxX/3-1, 2); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-		v.Title = "Project"
-		v.Wrap = true
-		fmt.Fprintln(v, "lazy-postgres")
+	cv := g.CurrentView()
+	current := ""
+	if cv != nil {
+		current = cv.Name()
 	}
 
-	// Databases view
-	if v, err := g.SetView("databases", 0, 3, maxX/3-1, maxY/2); err != nil {
-		if err != gocui.ErrUnknownView {
+	makeView := func(name string, x0, y0, x1, y1 int, title, content string, frame bool) error {
+		v, err := g.SetView(name, x0, y0, x1, y1)
+		if err != nil && err != gocui.ErrUnknownView {
 			return err
 		}
-		v.Title = "Databases"
-	}
-
-	// Queries view
-	if v, err := g.SetView("queries", 0, maxY/2+1, maxX/3-1, maxY-3); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
+		if err == gocui.ErrUnknownView {
+			v.Title = title
+			v.Wrap = true
+			v.Highlight = (name == current)
+			v.Frame = frame
+			if content != "" {
+				fmt.Fprint(v, content)
+			}
+		} else {
+			v.Highlight = (name == current)
 		}
-		v.Title = "Queries"
+		return nil
 	}
 
-	// Query Window
-	if v, err := g.SetView("queryWindow", maxX/3, 0, maxX-1, maxY-3); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-		v.Title = "Query Window"
-		v.Wrap = true
+	if err := makeView("project", 0, 0, maxX/3-1, 2, "Project", "lazy-postgres", true); err != nil {
+		return err
+	}
+	if err := makeView("databases", 0, 3, maxX/3-1, maxY/2, "Databases", "", true); err != nil {
+		return err
+	}
+	if err := makeView("queries", 0, maxY/2+1, maxX/3-1, maxY-3, "Queries", "", true); err != nil {
+		return err
+	}
+	if err := makeView("queryWindow", maxX/3, 0, maxX-1, maxY-3, "Query Window", "", true); err != nil {
+		return err
+	}
+	if err := makeView("footer", 0, maxY-2, maxX-1, maxY, "", "tab: change pane, q: quit, ← ↑ → ↓ : navigate", false); err != nil {
+		return err
 	}
 
-	// Footer
-	if v, err := g.SetView("footer", 0, maxY-2, maxX-1, maxY); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-		v.Frame = false
-		fmt.Fprint(v, "PgUp/PgDn, tab: focus, q: quit, ← ↑ → ↓ : navigate")
+	if !didInitFocus {
+		didInitFocus = true
+		go func() {
+			g.Update(func(g *gocui.Gui) error {
+				_, err := g.SetCurrentView(viewNames[0])
+				return err
+			})
+		}()
 	}
-
 	return nil
 }
 
@@ -77,15 +84,13 @@ func main() {
 	}
 	defer g.Close()
 
+	g.Highlight = true
+	g.SelFgColor = gocui.ColorGreen | gocui.AttrBold
+	g.SelBgColor = gocui.ColorDefault
+
 	g.SetManagerFunc(layout)
-
-	if err := g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, nextView); err != nil {
-		log.Panicln(err)
-	}
-
-	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
-		log.Panicln(err)
-	}
+	g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, nextView)
+	g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit)
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
