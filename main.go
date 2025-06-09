@@ -91,6 +91,7 @@ func main() {
 	g.SetManagerFunc(layout)
 	g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, nextView)
 	g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit)
+	g.SetKeybinding("", 'q', gocui.ModNone, quit)
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
