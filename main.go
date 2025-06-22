@@ -10,6 +10,7 @@ import (
 var viewNames = []string{"project", "databases", "queries", "queryWindow"}
 var currentView = 0
 var didInitFocus = false
+var showAddDatabase = false
 
 func layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
@@ -42,7 +43,7 @@ func layout(g *gocui.Gui) error {
 	if err := makeView("project", 0, 0, maxX/3-1, 2, "Project", "lazy-postgres", true); err != nil {
 		return err
 	}
-	if err := makeView("databases", 0, 3, maxX/3-1, maxY/2, "Databases", "", true); err != nil {
+	if err := makeView("databases", 0, 3, maxX/3-1, maxY/2, "Databases", "Database 1\nDatabase 2\nDatabase 3\n", true); err != nil {
 		return err
 	}
 	if err := makeView("queries", 0, maxY/2+1, maxX/3-1, maxY-3, "Queries", "", true); err != nil {
@@ -77,6 +78,42 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 	return gocui.ErrQuit
 }
 
+func toggleAddDatabase(g *gocui.Gui, v *gocui.View) error {
+	showAddDatabase = !showAddDatabase
+	g.Update(func(g *gocui.Gui) error {
+		if showAddDatabase {
+			maxX, maxY := g.Size()
+			width := 60
+			height := 7
+
+			x0 := (maxX - width) / 2
+			y0 := (maxY - height) / 2
+			x1 := x0 + width
+			y1 := y0 + height
+
+			if v, err := g.SetView("addDatabase", x0, y0, x1, y1); err != nil {
+				if err != gocui.ErrUnknownView {
+					return err
+				}
+				v.Title = "Add Database"
+				v.Editable = true
+				v.Wrap = true
+				fmt.Fprint(v, "Name:\n\nConnection String:\n")
+				_, err := g.SetCurrentView("addDatabase")
+				return err
+			}
+		} else {
+			g.DeleteView("addDatabase")
+			_, err := g.SetCurrentView(viewNames[currentView])
+			return err
+		}
+
+		return nil
+	})
+
+	return nil
+}
+
 func main() {
 	g, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
@@ -92,8 +129,10 @@ func main() {
 	g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, nextView)
 	g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit)
 	g.SetKeybinding("", 'q', gocui.ModNone, quit)
+	g.SetKeybinding("", 'a', gocui.ModNone, toggleAddDatabase)
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
 	}
 }
+
