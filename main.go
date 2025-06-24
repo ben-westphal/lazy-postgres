@@ -52,7 +52,7 @@ func layout(g *gocui.Gui) error {
 	if err := makeView("queryWindow", maxX/3, 0, maxX-1, maxY-3, "Query Window", "", true); err != nil {
 		return err
 	}
-	if err := makeView("footer", 0, maxY-2, maxX-1, maxY, "", "tab: change pane, q: quit, ← ↑ → ↓ : navigate", false); err != nil {
+	if err := makeView("footer", 0, maxY-2, maxX-1, maxY, "", "tab: change pane, q: quit, ← ↑ → ↓ : navigate, a: add new db", false); err != nil {
 		return err
 	}
 
@@ -126,13 +126,17 @@ func main() {
 	g.SelBgColor = gocui.ColorDefault
 
 	g.SetManagerFunc(layout)
+	initKeybindings(g)
+	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
+		log.Panicln(err)
+	}
+}
+
+func initKeybindings(g *gocui.Gui) error {
 	g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, nextView)
 	g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit)
 	g.SetKeybinding("", 'q', gocui.ModNone, quit)
 	g.SetKeybinding("", 'a', gocui.ModNone, toggleAddDatabase)
-
-	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
-		log.Panicln(err)
-	}
+	return nil
 }
 
